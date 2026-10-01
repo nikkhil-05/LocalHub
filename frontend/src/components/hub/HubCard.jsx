@@ -1,9 +1,11 @@
 import {
   Folder,
+  Camera,
   ArrowUpRight,
 } from "lucide-react"
 
 import { useNavigate } from "react-router-dom"
+import { APP_ROUTES } from "../../api/urls"
 
 
 function HubCard({ title, description, icon }) {
@@ -11,15 +13,14 @@ function HubCard({ title, description, icon }) {
 
   const icons = {
     folder: Folder,
+    camera: Camera,
   }
 
   const Icon = icons[icon]
 
 
   function handleClick() {
-    if (icon === "folder") {
-      navigate("/files")
-    }
+    navigate(icon === "camera" ? APP_ROUTES.camera : APP_ROUTES.files)
   }
 
 

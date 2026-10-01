@@ -1,10 +1,14 @@
+import os
+import tempfile
 from pathlib import Path
+from typing import BinaryIO
 
 
 BASE_DIR = Path(__file__).resolve().parents[3]
 FILES_DIR = BASE_DIR / "files"
 
 FILES_DIR.mkdir(exist_ok=True)
+MAX_UPLOAD_BYTES = int(os.getenv("LOCALHUB_MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
 
 
 def resolve_path(relative_path: str = "") -> Path:
@@ -50,7 +54,7 @@ def list_files(relative_path: str = ""):
 
 def save_file(
     filename: str,
-    content: bytes,
+    source: BinaryIO,
     relative_path: str = "",
 ):
     directory = resolve_path(relative_path)
@@ -61,16 +65,33 @@ def save_file(
     if not directory.is_dir():
         raise NotADirectoryError("Path is not a directory")
 
-    file_path = resolve_path(
-        str(Path(relative_path) / filename)
-    )
+    safe_name = Path(filename.replace("\\", "/")).name
+    if safe_name in ("", ".", ".."):
+        raise ValueError("Invalid file name")
 
-    file_path.write_bytes(content)
+    file_path = resolve_path(str(Path(relative_path) / safe_name))
+    temporary_path = None
+    size = 0
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb", dir=directory, prefix=".upload-", delete=False
+        ) as destination:
+            temporary_path = Path(destination.name)
+            while chunk := source.read(1024 * 1024):
+                size += len(chunk)
+                if size > MAX_UPLOAD_BYTES:
+                    raise ValueError("File exceeds the upload size limit")
+                destination.write(chunk)
+
+        os.replace(temporary_path, file_path)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
     return {
         "name": file_path.name,
         "type": "file",
-        "size": len(content),
+        "size": size,
     }
 
 
@@ -78,6 +99,9 @@ def create_directory(
     name: str,
     relative_path: str = "",
 ):
+    if not name or name in {".", ".."} or "/" in name or "\\" in name:
+        raise ValueError("Invalid directory name")
+
     directory = resolve_path(relative_path)
 
     if not directory.exists():

@@ -43,16 +43,14 @@ def get_files(
 
 
 @router.post("/upload")
-async def upload_file(
+def upload_file(
     file: UploadFile = File(...),
     path: str = Query(default=""),
 ):
     try:
-        content = await file.read()
-
         return save_file(
-            filename=file.filename,
-            content=content,
+            filename=file.filename or "",
+            source=file.file,
             relative_path=path,
         )
 
@@ -68,11 +66,17 @@ async def upload_file(
             detail="Path is not a directory",
         )
 
-    except ValueError:
+    except ValueError as exc:
         raise HTTPException(
             status_code=400,
-            detail="Invalid path",
+            detail=str(exc),
         )
+
+    except OSError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="File could not be written",
+        ) from exc
 
 
 @router.post("/folder")
@@ -104,10 +108,10 @@ def create_folder(
             detail="Directory already exists",
         )
 
-    except ValueError:
+    except ValueError as exc:
         raise HTTPException(
             status_code=400,
-            detail="Invalid path",
+            detail=str(exc),
         )
 
 
@@ -127,10 +131,10 @@ def download_file(path: str):
             filename=file_path.name,
         )
 
-    except ValueError:
+    except ValueError as exc:
         raise HTTPException(
             status_code=400,
-            detail="Invalid path",
+            detail=str(exc),
         )
 
 
@@ -150,8 +154,14 @@ def remove_path(path: str):
             "path": path,
         }
 
-    except ValueError:
+    except ValueError as exc:
         raise HTTPException(
             status_code=400,
-            detail="Invalid path",
+            detail=str(exc),
         )
+
+    except OSError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Directory is not empty or cannot be removed",
+        ) from exc

@@ -1,21 +1,28 @@
 import {
   LayoutDashboard,
   Folder,
+  Camera,
 } from "lucide-react"
 
 import { NavLink } from "react-router-dom"
+import { APP_ROUTES } from "../../api/urls"
 
 
 const navigation = [
   {
     name: "Overview",
-    path: "/",
+    path: APP_ROUTES.home,
     icon: LayoutDashboard,
   },
   {
     name: "Files",
-    path: "/files",
+    path: APP_ROUTES.files,
     icon: Folder,
+  },
+  {
+    name: "Camera",
+    path: APP_ROUTES.camera,
+    icon: Camera,
   },
 ]
 

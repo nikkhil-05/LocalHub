@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { ChevronDown } from "lucide-react"
 
-import { getSystemInfo } from "../services/systemService"
+import { getSystemInfo } from "../api/systemApi"
 
 import CpuCard from "../components/system/CpuCard"
 import MemoryCard from "../components/system/MemoryCard"
@@ -63,24 +63,29 @@ function Home() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    const controller = new AbortController()
+    let refreshTimer
+
     async function loadSystemInfo() {
       try {
-        const data = await getSystemInfo()
+        const data = await getSystemInfo({ signal: controller.signal })
 
         setSystem(data)
         setError(null)
       } catch (err) {
-        console.error(err)
-        setError("Unable to fetch system information")
+        if (err.name !== "AbortError") setError(err.message)
+      } finally {
+        if (!controller.signal.aborted) {
+          refreshTimer = setTimeout(loadSystemInfo, 5000)
+        }
       }
     }
 
     loadSystemInfo()
 
-    const interval = setInterval(loadSystemInfo, 5000)
-
     return () => {
-      clearInterval(interval)
+      controller.abort()
+      clearTimeout(refreshTimer)
     }
   }, [])
 
@@ -162,6 +167,12 @@ function Home() {
       title="Files"
       description="Store and manage your files."
       icon="folder"
+    />
+
+    <HubCard
+      title="Camera"
+      description="View the camera connected to your server."
+      icon="camera"
     />
 
   </div>

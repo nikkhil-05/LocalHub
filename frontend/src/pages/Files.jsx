@@ -9,14 +9,14 @@ import {
   Plus,
   ChevronRight,
 } from "lucide-react"
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+import { createFolder, deletePath, getDownloadUrl, listFiles, uploadFile } from "../api/filesApi"
 
 
 function Files() {
   const [files, setFiles] = useState([])
   const [currentPath, setCurrentPath] = useState("")
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
   const [uploading, setUploading] = useState(false)
 
   const [showFolderInput, setShowFolderInput] = useState(false)
@@ -26,35 +26,25 @@ function Files() {
   const fileInputRef = useRef(null)
 
 
-  async function loadFiles(path = currentPath) {
+  async function loadFiles(path = currentPath, signal) {
     setLoading(true)
 
     try {
-      const url = new URL(`${API_BASE_URL}/files`)
-
-      if (path) {
-        url.searchParams.set("path", path)
-      }
-
-      const response = await fetch(url)
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch files")
-      }
-
-      const data = await response.json()
-
+      const data = await listFiles(path, { signal })
       setFiles(data)
+      setError("")
     } catch (error) {
-      console.error(error)
+      if (error.name !== "AbortError") setError(error.message)
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) setLoading(false)
     }
   }
 
 
   useEffect(() => {
-    loadFiles(currentPath)
+    const controller = new AbortController()
+    loadFiles(currentPath, controller.signal)
+    return () => controller.abort()
   }, [currentPath])
 
 
@@ -95,31 +85,11 @@ function Files() {
     setUploading(true)
 
     try {
-      const formData = new FormData()
-
-      formData.append("file", file)
-
-      const url = new URL(
-        `${API_BASE_URL}/files/upload`
-      )
-
-      if (currentPath) {
-        url.searchParams.set("path", currentPath)
-      }
-
-      const response = await fetch(url, {
-        method: "POST",
-        body: formData,
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to upload file")
-      }
-
+      await uploadFile(file, currentPath)
       await loadFiles(currentPath)
 
     } catch (error) {
-      console.error(error)
+      setError(error.message)
     } finally {
       setUploading(false)
 
@@ -140,27 +110,7 @@ function Files() {
     setCreatingFolder(true)
 
     try {
-      const url = new URL(
-        `${API_BASE_URL}/files/folder`
-      )
-
-      url.searchParams.set("name", name)
-
-      if (currentPath) {
-        url.searchParams.set("path", currentPath)
-      }
-
-      const response = await fetch(url, {
-        method: "POST",
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-
-        throw new Error(
-          data.detail || "Failed to create folder"
-        )
-      }
+      await createFolder(name, currentPath)
 
       setFolderName("")
       setShowFolderInput(false)
@@ -168,7 +118,7 @@ function Files() {
       await loadFiles(currentPath)
 
     } catch (error) {
-      console.error(error)
+      setError(error.message)
     } finally {
       setCreatingFolder(false)
     }
@@ -181,24 +131,11 @@ function Files() {
       : item.name
 
     try {
-      const url = new URL(
-        `${API_BASE_URL}/files`
-      )
-
-      url.searchParams.set("path", itemPath)
-
-      const response = await fetch(url, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to delete item")
-      }
-
+      await deletePath(itemPath)
       await loadFiles(currentPath)
 
     } catch (error) {
-      console.error(error)
+      setError(error.message)
     }
   }
 
@@ -208,13 +145,7 @@ function Files() {
       ? `${currentPath}/${filename}`
       : filename
 
-    const url = new URL(
-      `${API_BASE_URL}/files/download`
-    )
-
-    url.searchParams.set("path", filePath)
-
-    window.open(url.toString(), "_blank")
+    window.open(getDownloadUrl(filePath), "_blank", "noopener,noreferrer")
   }
 
 
@@ -271,6 +202,12 @@ function Files() {
       <main className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
 
         <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40">
+
+          {error && (
+            <div role="alert" className="border-b border-red-900/70 bg-red-950/40 px-5 py-3 text-sm text-red-300">
+              {error}
+            </div>
+          )}
 
           {/* Toolbar */}
 

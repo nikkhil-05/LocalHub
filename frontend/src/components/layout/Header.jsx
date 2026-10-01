@@ -1,16 +1,16 @@
 import { Circle } from "lucide-react"
 
-function Header({ hostname }) {
+function Header({ hostname, section = "Overview", title = "Dashboard" }) {
   return (
     <header className="flex h-20 items-center justify-between border-b border-zinc-800 px-6 lg:px-8">
 
       <div>
         <p className="text-sm text-zinc-500">
-          Overview
+          {section}
         </p>
 
         <h2 className="text-lg font-medium text-zinc-100">
-          Dashboard
+          {title}
         </h2>
       </div>
 
